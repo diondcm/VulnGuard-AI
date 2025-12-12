@@ -1,6 +1,7 @@
-import { Repository } from '../types';
+import { Repository, AppSettings } from '../types';
 
 const STORAGE_KEY = 'vulnguard_repos';
+const SETTINGS_KEY = 'vulnguard_settings';
 
 export const getRepositories = (): Repository[] => {
   const data = localStorage.getItem(STORAGE_KEY);
@@ -33,4 +34,13 @@ export const updateRepositoryStatus = (id: string, updates: Partial<Repository>)
     repos[index] = { ...repos[index], ...updates };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(repos));
   }
+};
+
+export const getSettings = (): AppSettings => {
+  const data = localStorage.getItem(SETTINGS_KEY);
+  return data ? JSON.parse(data) : { julesApiKey: '', chatWebhookUrl: '' };
+};
+
+export const saveSettings = (settings: AppSettings): void => {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 };

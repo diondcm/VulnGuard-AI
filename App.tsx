@@ -10,17 +10,22 @@ import {
   RefreshCw, 
   Search,
   Activity,
-  Github
+  Github,
+  Settings as SettingsIcon,
+  Bot
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Repository } from './types';
 import * as storage from './utils/storage';
 import * as geminiService from './services/geminiService';
+import * as integrationService from './services/integrationService';
 import RepoForm from './components/RepoForm';
+import SettingsForm from './components/SettingsForm';
 
 const App: React.FC = () => {
   const [repos, setRepos] = useState<Repository[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingRepo, setEditingRepo] = useState<Repository | null>(null);
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [scanningId, setScanningId] = useState<string | null>(null);
@@ -34,6 +39,11 @@ const App: React.FC = () => {
     setRepos(storage.getRepositories());
     setIsFormOpen(false);
     setEditingRepo(null);
+  };
+
+  const handleSaveSettings = (settings: any) => {
+    storage.saveSettings(settings);
+    setIsSettingsOpen(false);
   };
 
   const handleDeleteRepo = (id: string, e: React.MouseEvent) => {
@@ -62,20 +72,33 @@ const App: React.FC = () => {
 
     try {
       const result = await geminiService.scanRepository(repo);
+      
+      // Check if we need to trigger auto-fix
+      let fixDelegatedAt = repo.fixDelegatedAt;
+      
+      // If critical or warning, trigger integrations
+      if (result.status === 'critical' || result.status === 'warning') {
+        const settings = storage.getSettings();
+        if (settings.julesApiKey || settings.chatWebhookUrl) {
+          // Fire and forget
+          integrationService.triggerRemediation(repo, result.report, settings);
+          // Update timestamp to show in UI
+          fixDelegatedAt = Date.now();
+        }
+      }
+
       const finishedRepo: Repository = {
         ...repo,
         status: result.status,
         lastReport: result.report,
         groundingLinks: result.links,
-        lastScanned: Date.now()
+        lastScanned: Date.now(),
+        fixDelegatedAt
       };
+      
       storage.saveRepository(finishedRepo);
       setRepos(storage.getRepositories());
       
-      // If currently viewing this repo, trigger update
-      if (selectedRepoId === repo.id) {
-        // Force refresh logic if needed, but state update handles it
-      }
     } catch (error) {
       console.error("Scan failed", error);
       const failedRepo: Repository = { ...repo, status: 'unknown' };
@@ -121,13 +144,22 @@ const App: React.FC = () => {
       {/* Sidebar / List */}
       <aside className="w-full md:w-96 bg-surface border-r border-white/5 flex flex-col h-screen overflow-hidden sticky top-0">
         <div className="p-6 border-b border-white/5">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-primary/20 rounded-lg text-primary">
-              <Activity size={24} />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/20 rounded-lg text-primary">
+                <Activity size={24} />
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                VulnGuard
+              </h1>
             </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-              VulnGuard AI
-            </h1>
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
+              title="Settings"
+            >
+              <SettingsIcon size={20} />
+            </button>
           </div>
           
           <div className="flex gap-2">
@@ -193,6 +225,12 @@ const App: React.FC = () => {
                   </button>
                 </div>
               </div>
+              {repo.fixDelegatedAt && repo.status !== 'safe' && (
+                <div className="mt-2 pt-2 border-t border-white/5 flex items-center gap-1.5 text-[10px] text-primary/80">
+                  <Bot size={12} />
+                  <span>Jules Fix Initiated</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -232,6 +270,21 @@ const App: React.FC = () => {
                 )}
               </button>
             </div>
+
+            {/* Status & Auto-fix info */}
+            {selectedRepo.fixDelegatedAt && selectedRepo.status !== 'safe' && (
+              <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center gap-4 animate-in fade-in slide-in-from-top-2">
+                 <div className="p-3 bg-primary/20 rounded-full text-primary">
+                    <Bot size={24} />
+                 </div>
+                 <div>
+                    <h4 className="font-bold text-white">Automated Remediation Active</h4>
+                    <p className="text-sm text-gray-300">
+                      We've delegated a fix request to Google Jules and notified your chat channel at {new Date(selectedRepo.fixDelegatedAt).toLocaleTimeString()}.
+                    </p>
+                 </div>
+              </div>
+            )}
 
             {/* Report Area */}
             {selectedRepo.lastReport ? (
@@ -299,6 +352,14 @@ const App: React.FC = () => {
           initialData={editingRepo} 
           onSave={handleSaveRepo} 
           onCancel={() => { setIsFormOpen(false); setEditingRepo(null); }} 
+        />
+      )}
+
+      {isSettingsOpen && (
+        <SettingsForm 
+          initialSettings={storage.getSettings()}
+          onSave={handleSaveSettings}
+          onCancel={() => setIsSettingsOpen(false)}
         />
       )}
     </div>

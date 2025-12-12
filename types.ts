@@ -9,6 +9,7 @@ export interface Repository {
   status: 'safe' | 'warning' | 'critical' | 'unknown' | 'scanning';
   lastReport?: string;
   groundingLinks?: { title: string; url: string }[];
+  fixDelegatedAt?: number;
 }
 
 export type ScanResult = {
@@ -16,3 +17,8 @@ export type ScanResult = {
   report: string;
   links: { title: string; url: string }[];
 };
+
+export interface AppSettings {
+  julesApiKey: string;
+  chatWebhookUrl: string;
+}
