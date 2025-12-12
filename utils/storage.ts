@@ -38,7 +38,12 @@ export const updateRepositoryStatus = (id: string, updates: Partial<Repository>)
 
 export const getSettings = (): AppSettings => {
   const data = localStorage.getItem(SETTINGS_KEY);
-  return data ? JSON.parse(data) : { julesApiKey: '', chatWebhookUrl: '' };
+  // Default backend URL placeholder
+  return data ? JSON.parse(data) : { 
+    julesApiKey: '', 
+    chatWebhookUrl: '',
+    backendUrl: 'https://REGION-PROJECT.cloudfunctions.net/remediate' 
+  };
 };
 
 export const saveSettings = (settings: AppSettings): void => {

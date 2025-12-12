@@ -21,4 +21,5 @@ export type ScanResult = {
 export interface AppSettings {
   julesApiKey: string;
   chatWebhookUrl: string;
+  backendUrl: string;
 }
