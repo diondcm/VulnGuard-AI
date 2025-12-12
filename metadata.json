@@ -1,0 +1,5 @@
+{
+  "name": "VulnGuard AI",
+  "description": "A security monitoring tool that uses Gemini 3 and Google Search to identify vulnerabilities in your project dependencies.",
+  "requestFramePermissions": []
+}
